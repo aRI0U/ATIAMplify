@@ -38,3 +38,9 @@ In `script.js` one can find several (unused) functions originally written for th
 
 We also tried to use the AMDF implementation from [this repository](https://github.com/peterkhayes/pitchfinder) but it were no more successful. Hence the file `robotic-bundle.js` which is the [browserified](http://browserify.org/) version of `robotic.js`.
 
+
+
+## TODOs
+
+*As of now, the different effects lie on various branches. It will be merged as soon as possible.*
+
