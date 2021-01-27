@@ -144,7 +144,6 @@ function estimateFundamental() {
     let max = 0
     let imax = 0
     for (let i = 0; i < spectralLength; ++i) {
-        // console.log(spectralProduct[i])
         if (spectralProduct[i] > max) {
             imax = i
             max = spectralProduct[i]
@@ -178,7 +177,7 @@ function refreshPitchRatio() {
 
     let pitchRatioParam = vocoderNode.parameters.get("pitchRatio")
     const newPitchRatio = computePitchRatio(fundamental)
-    pitchRatioParam.setValueAtTime(  // TODO: linearRampToValueAtTime instead?
+    pitchRatioParam.setValueAtTime(
         newPitchRatio,
         context.currentTime
     )
