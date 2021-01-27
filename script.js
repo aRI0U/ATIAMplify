@@ -54,12 +54,17 @@ function setupEventListeners() {
 }
 
 async function setupContext() {
-  const guitar = await getGuitar()
+  const voice = await getVoice()
   if (context.state === 'suspended') {
     await context.resume()
   }
-  const source = context.createMediaStreamSource(guitar)
+  await context.audioWorklet.addModule('vocoder.js')
+  const vocoderNode = new AudioWorkletNode(context, 'vocoder-processor')
+  vocoderNode.connect(gainNode)
+  console.log("bonjours")
+  const source = context.createMediaStreamSource(voice)
   source
+    .connect(vocoderNode)
     .connect(bassEQ)
     .connect(midEQ)
     .connect(trebleEQ)
@@ -68,7 +73,7 @@ async function setupContext() {
     .connect(context.destination)
 }
 
-function getGuitar() {
+function getVoice() {
   return navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: false,
