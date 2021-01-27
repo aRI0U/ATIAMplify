@@ -1,8 +1,22 @@
 class VocoderProcessor extends AudioWorkletProcessor {
+    static get parameterDescriptors() {
+        return [
+            {
+                name: "pitchRatio",
+                defaultValue: 1.0
+            },
+            {
+                name: "overlapRatio",
+                defaultValue: 0.3,
+                minValue: 0.0,
+                maxValue: 1.0
+            }
+        ]
+    }
+
     process (inputs, outputs, parameters) {
-        // TODO: make it clean in params
-        const pitchRatio = 2.0
-        const overlapRatio = 0.0
+        const pitchRatio = parameters.pitchRatio
+        const overlapRatio = parameters.overlapRatio
 
         const input = inputs[0]
         const output = outputs[0]
@@ -16,7 +30,6 @@ class VocoderProcessor extends AudioWorkletProcessor {
             const window = hannWindow(length)
             const buffer = new Float32Array(2 * length)
 
-
             for (let i = 0; i < length; ++i) {
                 buffer[i] = inputChannel[i] * window[i]
                 buffer[i + length] = 0.0
@@ -25,9 +38,9 @@ class VocoderProcessor extends AudioWorkletProcessor {
             let grainData = new Float32Array(2 * length)
             let j = 0.0
             for (let i = 0; i < length; ++i) {
-                let idx = Math.floor(j) % length
-                let a = inputChannel[idx]
-                let b = inputChannel[(idx + 1) % length]
+                const idx = Math.floor(j)
+                const a = inputChannel[idx % length]
+                const b = inputChannel[(idx + 1) % length]
                 grainData[i] += linearInterpolation(a, b, j % 1.0) * window[i]
                 j += pitchRatio
             }

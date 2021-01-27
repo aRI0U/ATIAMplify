@@ -6,6 +6,9 @@ This project has been realized for the Web Audio course of master ATIAM.
 
 ## Setup
 
+```
+npm install --save pitchfinder
+```
 
 
 ## Usage

@@ -1,31 +1,53 @@
+const frequenciesCMajor = [
+     32.70,  36.71,  41.20,  43.65,  49.00,  55.00,  61.74,
+     65.41,  73.42,  82.41,  87.31,  98.00, 110.00, 123.47,
+    130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94,
+    261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88,
+    523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77
+]
+
 const volume = document.getElementById('volume')
 const bass = document.getElementById('bass')
 const mid = document.getElementById('mid')
 const treble = document.getElementById('treble')
+const overlap = document.getElementById('overlap')
+
+
 const visualizer = document.getElementById('visualizer')
 
 const context = new AudioContext()
+let vocoderNode = null
 const analyserNode = new AnalyserNode(context, { fftSize: 256 })
-const gainNode = new GainNode(context, { gain: volume.value})
+const numDecimations = 4
+
+// EQUALIZERS
+const gainNode = new GainNode(context, { gain: volume.value })
 const bassEQ = new BiquadFilterNode(context, {
-  type: 'lowshelf',
-  frequency: 500,
-  gain: bass.value
+    type: 'lowshelf',
+    frequency: 500,
+    gain: bass.value
 })
 const midEQ = new BiquadFilterNode(context, {
-  type: 'peaking',
-  Q: Math.SQRT1_2,
-  frequency: 1500,
-  gain: mid.value
+    type: 'peaking',
+    Q: Math.SQRT1_2,
+    frequency: 1500,
+    gain: mid.value
 })
 const trebleEQ = new BiquadFilterNode(context, {
-  type: 'highshelf',
-  frequency: 3000,
-  gain: treble.value
+    type: 'highshelf',
+    frequency: 3000,
+    gain: treble.value
 })
 
+
+// PITCH DETECTION WITH SPECTRAL PRODUCT
+const pitchDetector = new AnalyserNode(context, { fftSize: 256 })
+
+
+// MAIN
 setupEventListeners()
 setupContext()
+bindAudioWorkletParams()
 resize()
 drawVisualizer()
 
@@ -54,16 +76,17 @@ function setupEventListeners() {
 }
 
 async function setupContext() {
-  const voice = await getVoice()
-  if (context.state === 'suspended') {
-    await context.resume()
-  }
-  await context.audioWorklet.addModule('vocoder.js')
-  const vocoderNode = new AudioWorkletNode(context, 'vocoder-processor')
-  vocoderNode.connect(gainNode)
-  console.log("bonjours")
-  const source = context.createMediaStreamSource(voice)
-  source
+    const voice = await getVoice()
+    if (context.state === 'suspended') {
+        await context.resume()
+    }
+    await context.audioWorklet.addModule("vocoder.js")
+    vocoderNode = new AudioWorkletNode(context, "vocoder-processor")
+
+
+    const source = context.createMediaStreamSource(voice)
+    source
+    .connect(pitchDetector)
     .connect(vocoderNode)
     .connect(bassEQ)
     .connect(midEQ)
@@ -78,11 +101,90 @@ function getVoice() {
     audio: {
       echoCancellation: false,
       autoGainControl: false,
-      noiseSuppression: false,
+      noiseSuppression: true,
       latency: 0
     }
   })
 }
+
+function bindAudioWorkletParams() {
+    overlap.addEventListener('input', e => {
+        let overlapRatioParam = vocoderNode.parameters.get("overlapRatio")
+        const value = parseFloat(e.target.value)
+        overlapRatioParam.setTargetAtTime(value, context.currentTime, .01)
+    })
+}
+
+
+// <--- VOCODER-RELATED FUNCTIONS (UNUSED)
+function estimateFundamental() {
+    const bufferLength = pitchDetector.frequencyBinCount
+    const spectralData = new Float32Array(bufferLength)
+    pitchDetector.getFloatFrequencyData(spectralData)
+
+    // maximal length such that all frequencies are below the Nyquist frequency
+    const spectralLength = Math.ceil(pitchDetector.fftSize / (2 * numDecimations))
+    const spectralProduct = new Float32Array(spectralLength)
+
+    // empty spectral product
+    for (let i = 0; i < spectralLength; ++i) {
+        spectralProduct[i] = 1.0
+    }
+
+    // fill spectral product
+    for (let h = 1; h <= numDecimations; ++h) {
+        const numValidSamples = Math.min(Math.floor(bufferLength / h), spectralLength)
+        for (let i = 0; i < numValidSamples; ++i) {
+            // console.log(spectralData[i])
+            spectralProduct[i] *= spectralData[h*i]
+        }
+    }
+
+    // get index of maximal amplitude  (built-in function for this?)
+    let max = 0
+    let imax = 0
+    for (let i = 0; i < spectralLength; ++i) {
+        // console.log(spectralProduct[i])
+        if (spectralProduct[i] > max) {
+            imax = i
+            max = spectralProduct[i]
+        }
+    }
+
+    // compute frequency out of index
+    return imax * context.sampleRate / pitchDetector.fftSize
+}
+
+function computePitchRatio(frequency) {
+    // find the closest note in the C major key from frequency and compute pitch ratio
+    if (frequency === 0) {  // avoid crashes when volume is null
+        return 1.0
+    }
+    let distance
+    let previousDistance = Math.abs(frequenciesCMajor[0] - frequency)
+    for (let i = 1; i < 35; ++i) {
+        distance = Math.abs(frequenciesCMajor[i] - frequency)
+        if (distance > previousDistance) {
+            return frequenciesCMajor[i-1] / frequency
+        } else {
+            previousDistance = distance
+        }
+    }
+    return frequenciesCMajor[-1] / frequency
+}
+
+function refreshPitchRatio() {
+    const fundamental = estimateFundamental()
+
+    let pitchRatioParam = vocoderNode.parameters.get("pitchRatio")
+    const newPitchRatio = computePitchRatio(fundamental)
+    pitchRatioParam.setValueAtTime(  // TODO: linearRampToValueAtTime instead?
+        newPitchRatio,
+        context.currentTime
+    )
+}
+// --->
+
 
 function drawVisualizer() {
   requestAnimationFrame(drawVisualizer)

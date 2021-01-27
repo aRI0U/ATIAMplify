@@ -1,0 +1,23 @@
+{
+  "name": "atiamplify",
+  "version": "1.0.0",
+  "description": "Web Audio based amplifier",
+  "main": "script.js",
+  "dependencies": {
+    "pitchfinder": "^2.3.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aRI0U/Web-Audiotune.git"
+  },
+  "author": "Riou, Tuckey, Warion",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aRI0U/Web-Audiotune/issues"
+  },
+  "homepage": "https://github.com/aRI0U/Web-Audiotune#readme"
+}
