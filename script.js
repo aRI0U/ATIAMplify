@@ -59,6 +59,8 @@ const oscGain = new GainNode(context, { gain: 0.002 })
 const flangerGainOne = new GainNode(context, { gain: 1 })
 const flangerGainTwo = new GainNode(context, { gain: 0.5 })
 const flangerGainThree = new GainNode(context, { gain: 1 })
+const flangerDelayNode = context.createDelay()
+flangerDelayNode.delayTime.value = 0.005
 
 // PITCH DETECTION WITH SPECTRAL PRODUCT
 const pitchDetector = new AnalyserNode(context, { fftSize: 256 })
@@ -93,6 +95,11 @@ function setupEventListeners() {
         const value = parseInt(e.target.value)
         trebleEQ.gain.setTargetAtTime(value, context.currentTime, .01)
     })
+
+    distorsion.addEventListener('input', e => {
+        const value = parseInt(e.target.value)
+        waveShaperNode.curve = makeDistorsionCurve(value)
+    })
 }
 
 async function setupContext() {
@@ -106,14 +113,29 @@ async function setupContext() {
 
     const source = context.createMediaStreamSource(voice)
     source
-    .connect(pitchDetector)
-    .connect(vocoderNode)
-    .connect(bassEQ)
-    .connect(midEQ)
-    .connect(trebleEQ)
-    .connect(gainNode)
-    .connect(analyserNode)
-    .connect(context.destination)
+        .connect(pitchDetector)
+        .connect(vocoderNode)
+        .connect(bassEQ)
+        .connect(midEQ)
+        .connect(trebleEQ)
+        .connect(flangerGainOne)
+        .connect(waveShaperNode)
+        .connect(delayInputNode)
+        .connect(filter.input)
+        .connect(gainNode)
+        .connect(analyserNode)
+        .connect(context.destination)
+    delayInputNode.connect(delayNode).connect(delayGainNodeTwo)
+    delayNode.connect(delayGainNode).connect(delayGainNodeThree)
+    delayGainNode.connect(delayNode)
+    delayGainNodeThree.connect(context.destination)
+    flangerGainOne.connect(flangerDelayNode).connect(flangerGainThree)
+    flangerDelayNode.connect(flangerGainThree).connect(flangerGainTwo)
+    flangerGainTwo.connect(flangerGainOne)
+    flangerGainThree.connect(context.destination)
+    oscillatorNode.connect(oscGain).connect(flangerDelayNode.delayTime)
+
+    waveShaperNode.connect(context.destination)
 }
 
 function getVoice() {
@@ -134,6 +156,21 @@ function bindAudioWorkletParams() {
         overlapRatioParam.setTargetAtTime(value, context.currentTime, .01)
     })
 }
+
+// <--- EFFECTS-RELATED FUNCTIONS
+function makeDistorsionCurve(amount) {
+    const numSamples = context.sampleRate
+    const k = typeof amount === "number" ? amount : 50
+    const curve = new Float32Array(numSamples)
+    const deg = Math.PI / 180
+    let x
+    for (let i = 0; i < numSamples; ++i) {
+        x = i * 2 / numSamples - 1
+        curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x))
+    }
+    return curve
+}
+// --->
 
 
 // <--- VOCODER-RELATED FUNCTIONS (UNUSED)
