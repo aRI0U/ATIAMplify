@@ -11,7 +11,9 @@ const bass = document.getElementById('bass')
 const mid = document.getElementById('mid')
 const treble = document.getElementById('treble')
 const overlap = document.getElementById('overlap')
-
+const distorsion = document.getElementById('distorsion')
+const delayLength = document.getElementById('delayLength')
+const delayAmp1 = document.getElementById('delayAmp1')
 
 const visualizer = document.getElementById('visualizer')
 
@@ -39,6 +41,24 @@ const trebleEQ = new BiquadFilterNode(context, {
     gain: treble.value
 })
 
+const waveShaperNode = context.createWaveShaper()
+waveShaperNode.oversample = '4x'
+waveShaperNode.curve = makeDistorsionCurve(distorsion.value)
+
+const delayNode = context.createDelay()
+delayNode.delayTime.value = 1
+const delayInputNode = new GainNode(context, { gain: 1 })
+const delayGainNode = new GainNode(context, { gain: 0.5 })
+const delayGainNodeTwo = new GainNode(context, { gain: 1 })
+const delayGainNodeThree = new GainNode(context, { gain: 1 })
+
+const oscillatorNode = context.createOscillator()
+oscillatorNode.type = 'sine'
+oscillatorNode.frequency.value = 0.25
+const oscGain = new GainNode(context, { gain: 0.002 })
+const flangerGainOne = new GainNode(context, { gain: 1 })
+const flangerGainTwo = new GainNode(context, { gain: 0.5 })
+const flangerGainThree = new GainNode(context, { gain: 1 })
 
 // PITCH DETECTION WITH SPECTRAL PRODUCT
 const pitchDetector = new AnalyserNode(context, { fftSize: 256 })
@@ -52,27 +72,27 @@ resize()
 drawVisualizer()
 
 function setupEventListeners() {
-  window.addEventListener('resize', resize)
+    window.addEventListener('resize', resize)
 
-  volume.addEventListener('input', e => {
-    const value = parseFloat(e.target.value)
-    gainNode.gain.setTargetAtTime(value, context.currentTime, .01)
-  })
+    volume.addEventListener('input', e => {
+        const value = parseFloat(e.target.value)
+        gainNode.gain.setTargetAtTime(value, context.currentTime, .01)
+    })
 
-  bass.addEventListener('input', e => {
-    const value = parseInt(e.target.value)
-    bassEQ.gain.setTargetAtTime(value, context.currentTime, .01)
-  })
+    bass.addEventListener('input', e => {
+        const value = parseInt(e.target.value)
+        bassEQ.gain.setTargetAtTime(value, context.currentTime, .01)
+    })
 
-  mid.addEventListener('input', e => {
-    const value = parseInt(e.target.value)
-    midEQ.gain.setTargetAtTime(value, context.currentTime, .01)
-  })
+    mid.addEventListener('input', e => {
+        const value = parseInt(e.target.value)
+        midEQ.gain.setTargetAtTime(value, context.currentTime, .01)
+    })
 
-  treble.addEventListener('input', e => {
-    const value = parseInt(e.target.value)
-    trebleEQ.gain.setTargetAtTime(value, context.currentTime, .01)
-  })
+    treble.addEventListener('input', e => {
+        const value = parseInt(e.target.value)
+        trebleEQ.gain.setTargetAtTime(value, context.currentTime, .01)
+    })
 }
 
 async function setupContext() {
@@ -97,14 +117,14 @@ async function setupContext() {
 }
 
 function getVoice() {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      autoGainControl: false,
-      noiseSuppression: true,
-      latency: 0
-    }
-  })
+    return navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: true,
+          latency: 0
+        }
+    })
 }
 
 function bindAudioWorkletParams() {
@@ -186,28 +206,28 @@ function refreshPitchRatio() {
 
 
 function drawVisualizer() {
-  requestAnimationFrame(drawVisualizer)
+    requestAnimationFrame(drawVisualizer)
 
-  const bufferLength = analyserNode.frequencyBinCount
-  const dataArray = new Uint8Array(bufferLength)
-  analyserNode.getByteFrequencyData(dataArray)
-  const width = visualizer.width
-  const height = visualizer.height
-  const barWidth = width / bufferLength
+    const bufferLength = analyserNode.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+    analyserNode.getByteFrequencyData(dataArray)
+    const width = visualizer.width
+    const height = visualizer.height
+    const barWidth = width / bufferLength
 
-  const canvasContext = visualizer.getContext('2d')
-  canvasContext.clearRect(0, 0, width, height)
+    const canvasContext = visualizer.getContext('2d')
+    canvasContext.clearRect(0, 0, width, height)
 
-  dataArray.forEach((item, index) => {
-    const y = item / 255 * height / 2
-    const x = barWidth * index
+    dataArray.forEach((item, index) => {
+        const y = item / 255 * height / 2
+        const x = barWidth * index
 
-    canvasContext.fillStyle = `hsl(${y / height * 400}, 100%, 50%)`
-    canvasContext.fillRect(x, height - y, barWidth, y)
-  })
+        canvasContext.fillStyle = `hsl(${y / height * 400}, 100%, 50%)`
+        canvasContext.fillRect(x, height - y, barWidth, y)
+    })
 }
 
 function resize() {
-  visualizer.width = visualizer.clientWidth * window.devicePixelRatio
-  visualizer.height = visualizer.clientHeight * window.devicePixelRatio
+    visualizer.width = visualizer.clientWidth * window.devicePixelRatio
+    visualizer.height = visualizer.clientHeight * window.devicePixelRatio
 }
